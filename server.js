@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: 'http://localhost:3000',
-        methods: ['GET', 'POST', 'PUT', 'DELETE']  // Aggiunto PUT e DELETE
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Aggiunto PUT e DELETE
     }
 });
 
@@ -20,12 +20,7 @@ app.use(cors({
     optionsSuccessStatus: 200,
 }));
 
-// Dati simulati per i ticket
-let tickets = [
-    { id: 1, name: 'Ticket 1', status: 'open', category: 'bug', text: 'Description of Ticket 1', comments: [] },
-    { id: 2, name: 'Ticket 2', status: 'closed', category: 'feature', text: 'Description of Ticket 2', comments: [] },
-];
-
+let tickets = []; // Array vuoto per memorizzare i ticket
 let messages = []; // Array per memorizzare i messaggi
 const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
 
@@ -72,7 +67,7 @@ app.post('/tickets/:id/comment', (req, res) => {
     res.status(200).json(ticket);
 });
 
-// **Nuovo endpoint** per aggiornare lo stato di un ticket
+// Endpoint per aggiornare lo stato di un ticket
 app.put('/tickets/:id', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -86,6 +81,26 @@ app.put('/tickets/:id', (req, res) => {
 
     res.status(200).json(ticket);
 });
+
+// Endpoint per ottenere solo i ticket di phishing
+app.get('/tickets/phishing', (req, res) => {
+    const phishingTickets = tickets.filter(ticket => ticket.category === 'phishing');
+    res.json(phishingTickets);
+});
+
+// Endpoint per chiudere un ticket di phishing
+app.put('/tickets/phishing/:id/close', (req, res) => {
+    const { id } = req.params;
+    const ticket = tickets.find(ticket => ticket.id === parseInt(id) && ticket.category === 'phishing');
+
+    if (!ticket) {
+        return res.status(404).json({ message: `Phishing ticket with id ${id} not found` });
+    }
+
+    ticket.status = 'closed';
+    res.status(200).json(ticket);
+});
+
 
 // Endpoint per ottenere tutti i messaggi
 app.get('/messages', (req, res) => {
@@ -136,6 +151,8 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+
 
 
 
