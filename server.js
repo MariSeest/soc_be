@@ -23,9 +23,8 @@ app.use(cors({
 let messages = []; // Array per memorizzare i messaggi
 const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
 
-// Importa le funzioni per creare e recuperare i ticket dal database
-const { createTicket, getTicketById } = require('./db'); // Assicurati che il file db.js esista e contenga le funzioni
-const { getAllTickets } = require('./db'); // Importa la funzione per ottenere i ticket
+// Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti ai ticket dal database
+const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus } = require('./db');
 
 // Endpoint per ottenere tutti i ticket
 app.get('/tickets', (req, res) => {
@@ -71,45 +70,42 @@ app.post('/tickets', (req, res) => {
     });
 });
 
-// Endpoint per eliminare un ticket
+// Endpoint per eliminare un ticket utilizzando deleteTicketById
 app.delete('/tickets/:id', (req, res) => {
     const { id } = req.params;
-    tickets = tickets.filter(ticket => ticket.id !== parseInt(id));
-    res.status(200).json({ message: `Ticket with id ${id} deleted` });
+
+    deleteTicketById(id, (err, result) => {
+        if (err) {
+            return res.status(500).send('Error deleting ticket');
+        }
+        res.status(200).json({ message: `Ticket with id ${id} deleted` });
+    });
 });
 
-// Endpoint per aggiungere un commento a un ticket
+// Endpoint per aggiungere un commento a un ticket utilizzando addCommentToTicket
 app.post('/tickets/:id/comment', (req, res) => {
     const { id } = req.params;
     const { comment } = req.body;
-    const ticket = tickets.find(ticket => ticket.id === parseInt(id));
 
-    if (!ticket) {
-        return res.status(404).json({ message: `Ticket with id ${id} not found` });
-    }
-
-    if (!ticket.comments) {
-        ticket.comments = [];
-    }
-
-    ticket.comments.push(comment);
-
-    res.status(200).json(ticket);
+    addCommentToTicket(id, comment, (err, result) => {
+        if (err) {
+            return res.status(500).send('Error adding comment');
+        }
+        res.status(200).json({ message: `Comment added to ticket with id ${id}` });
+    });
 });
 
-// Endpoint per aggiornare lo stato di un ticket
+// Endpoint per aggiornare lo stato di un ticket utilizzando updateTicketStatus
 app.put('/tickets/:id', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    const ticket = tickets.find(ticket => ticket.id === parseInt(id));
 
-    if (!ticket) {
-        return res.status(404).json({ message: `Ticket with id ${id} not found` });
-    }
-
-    ticket.status = status;
-
-    res.status(200).json(ticket);
+    updateTicketStatus(id, status, (err, result) => {
+        if (err) {
+            return res.status(500).send('Error updating ticket status');
+        }
+        res.status(200).json({ message: `Ticket with id ${id} updated` });
+    });
 });
 
 // Endpoint per ottenere solo i ticket di phishing
@@ -180,6 +176,9 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+
+
 
 
 
