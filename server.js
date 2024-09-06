@@ -26,6 +26,7 @@ const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro sock
 // Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti e risposte
 const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment, getCommentsByTicketId } = require('./db');
 
+
 // Connessione al database MySQL
 const mysql = require('mysql2');
 const connection = mysql.createConnection({
