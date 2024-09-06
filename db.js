@@ -76,8 +76,10 @@ function deleteTicketById(id, callback) {
     });
 }
 
-// Funzione per aggiungere un commento a un ticket (aggiornata)
+// Funzione per aggiungere un commento a un ticket
 function addCommentToTicket(id, comment, callback) {
+    console.log(`Adding comment to ticket ID ${id}: ${comment}`);
+
     const sql = `UPDATE tickets 
                  SET comments = IFNULL(CONCAT(comments, '\n', ?), ?) 
                  WHERE id = ?`;
@@ -87,6 +89,7 @@ function addCommentToTicket(id, comment, callback) {
             console.error('Error adding comment: ' + err.stack);
             return callback(err);
         }
+        console.log(`Comment added to ticket ID ${id}`);
         callback(null, result);
     });
 }
@@ -113,6 +116,7 @@ module.exports = {
     addCommentToTicket,
     updateTicketStatus
 };
+
 
 
 
