@@ -208,6 +208,17 @@ app.post('/phishing-comments/:commentId/reply', (req, res) => {
         res.json({ id: result.insertId });
     });
 });
+app.put('/tickets/:id/close', (req, res) => {
+    const { id } = req.params;
+
+    updateTicketStatus(id, 'closed', (err, result) => {
+        if (err) {
+            return res.status(500).send('Error closing ticket');
+        }
+        res.status(200).json({ message: `Ticket with id ${id} closed` });
+    });
+});
+
 app.delete('/phishing-tickets/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM phishing_tickets WHERE id = ?';
