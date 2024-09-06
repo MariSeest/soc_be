@@ -62,6 +62,36 @@ function getAllTickets(callback) {
         callback(null, results);
     });
 }
+function getAllPhishingTickets(callback) {
+    const sql = 'SELECT * FROM phishing_tickets';
+    connection.query(sql, (err, results) => {
+        if (err) {
+            return callback(err);
+        }
+        callback(null, results);
+    });
+}
+function addPhishingComment(ticket_id, comment_text, callback) {
+    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
+
+    connection.query(sql, [ticket_id, comment_text], (err, result) => {
+        if (err) {
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
+function addPhishingReply(comment_id, reply_text, callback) {
+    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
+
+    connection.query(sql, [comment_id, reply_text], (err, result) => {
+        if (err) {
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
+
 
 // Funzione per ottenere i commenti di un ticket e le relative risposte
 function getCommentsByTicketId(ticket_id, callback) {

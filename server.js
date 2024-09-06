@@ -152,6 +152,84 @@ app.delete('/comments/:commentId', (req, res) => {
         res.status(200).json({ message: `Comment with id ${commentId} deleted` });
     });
 });
+app.get('/phishing-tickets', (req, res) => {
+    const sql = 'SELECT * FROM phishing_tickets';
+    connection.query(sql, (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving phishing tickets' });
+        }
+        res.json(results);
+    });
+});
+app.post('/phishing-tickets', (req, res) => {
+    const { domain, severity, status } = req.body;
+    const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
+
+    connection.query(sql, [domain, severity, status], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error creating phishing ticket' });
+        }
+        res.json({ id: result.insertId });
+    });
+});
+
+app.get('/phishing-tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+    const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ?';
+
+    connection.query(sql, [id], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving comments' });
+        }
+        res.json(results);
+    });
+});
+app.post('/phishing-tickets/:id/comment', (req, res) => {
+    const { id } = req.params;
+    const { comment_text } = req.body;
+    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
+
+    connection.query(sql, [id, comment_text], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error adding comment' });
+        }
+        res.json({ id: result.insertId });
+    });
+});
+app.post('/phishing-comments/:commentId/reply', (req, res) => {
+    const { commentId } = req.params;
+    const { reply_text } = req.body;
+    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
+
+    connection.query(sql, [commentId, reply_text], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error adding reply' });
+        }
+        res.json({ id: result.insertId });
+    });
+});
+app.delete('/phishing-tickets/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = 'DELETE FROM phishing_tickets WHERE id = ?';
+
+    connection.query(sql, [id], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error deleting ticket' });
+        }
+        res.status(200).json({ message: `Ticket with id ${id} deleted` });
+    });
+});
+app.delete('/phishing-comments/:commentId', (req, res) => {
+    const { commentId } = req.params;
+    const sql = 'DELETE FROM phishing_comments WHERE id = ?';
+
+    connection.query(sql, [commentId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error deleting comment' });
+        }
+        res.status(200).json({ message: `Comment with id ${commentId} deleted` });
+    });
+});
 
 // Gestione delle connessioni socket
 io.on('connection', (socket) => {
