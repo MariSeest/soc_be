@@ -52,6 +52,21 @@ function getTicketById(id, callback) {
 
 // Esporta le funzioni per essere utilizzate in altri file
 module.exports = { createTicket, getTicketById };
+// Funzione per ottenere tutti i ticket dal database
+function getAllTickets(callback) {
+    const sql = 'SELECT * FROM tickets';
+
+    connection.query(sql, (err, results) => {
+        if (err) {
+            console.error('Error retrieving tickets: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, results);
+    });
+}
+
+// Esporta la funzione insieme a createTicket
+module.exports = { createTicket, getAllTickets };
 
 
 
