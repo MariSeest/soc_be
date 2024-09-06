@@ -52,6 +52,18 @@ app.get('/ticket/:id', (req, res) => {
     });
 });
 
+// Endpoint per ottenere i commenti di un ticket tramite ID
+app.get('/tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+
+    getCommentsByTicketId(id, (err, comments) => {
+        if (err) {
+            return res.status(500).send('Error retrieving comments');
+        }
+        res.json(comments);
+    });
+});
+
 // Endpoint per ottenere un messaggio di prova
 app.get('/api/data', (req, res) => {
     res.json({ message: 'Hello from the back end!' });
@@ -176,6 +188,7 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
 
 
 

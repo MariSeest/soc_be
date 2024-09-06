@@ -77,22 +77,31 @@ function deleteTicketById(id, callback) {
 }
 
 // Funzione per aggiungere un commento a un ticket
-function addCommentToTicket(id, comment, callback) {
-    console.log(`Adding comment to ticket ID ${id}: ${comment}`);
+function addCommentToTicket(ticket_id, comment_text, callback) {
+    const sql = 'INSERT INTO comments (ticket_id, comment_text) VALUES (?, ?)';
 
-    const sql = `UPDATE tickets 
-                 SET comments = IFNULL(CONCAT(comments, '\n', ?), ?) 
-                 WHERE id = ?`;
-
-    connection.query(sql, [comment, comment, id], (err, result) => {
+    connection.query(sql, [ticket_id, comment_text], (err, result) => {
         if (err) {
             console.error('Error adding comment: ' + err.stack);
             return callback(err);
         }
-        console.log(`Comment added to ticket ID ${id}`);
+        console.log(`Comment added to ticket ID ${ticket_id}`);
         callback(null, result);
     });
 }
+// Funzione per ottenere tutti i commenti di un ticket
+function getCommentsByTicketId(ticket_id, callback) {
+    const sql = 'SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at ASC';
+
+    connection.query(sql, [ticket_id], (err, results) => {
+        if (err) {
+            console.error('Error retrieving comments: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, results);
+    });
+}
+
 
 // Funzione per aggiornare lo stato di un ticket
 function updateTicketStatus(id, status, callback) {
