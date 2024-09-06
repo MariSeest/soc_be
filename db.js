@@ -76,13 +76,28 @@ function deleteTicketById(id, callback) {
     });
 }
 
-// Funzione per aggiungere un commento a un ticket
+// Funzione per aggiungere un commento a un ticket (aggiornata)
 function addCommentToTicket(id, comment, callback) {
-    const sql = 'UPDATE tickets SET comments = CONCAT(comments, ?) WHERE id = ?';
+    const sql = `UPDATE tickets 
+                 SET comments = IFNULL(CONCAT(comments, '\n', ?), ?) 
+                 WHERE id = ?`;
 
-    connection.query(sql, [comment, id], (err, result) => {
+    connection.query(sql, [comment, comment, id], (err, result) => {
         if (err) {
             console.error('Error adding comment: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
+
+// Funzione per aggiornare lo stato di un ticket
+function updateTicketStatus(id, status, callback) {
+    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
+
+    connection.query(sql, [status, id], (err, result) => {
+        if (err) {
+            console.error('Error updating ticket status: ' + err.stack);
             return callback(err);
         }
         callback(null, result);
@@ -95,22 +110,10 @@ module.exports = {
     getTicketById,
     getAllTickets,
     deleteTicketById,
-    addCommentToTicket
+    addCommentToTicket,
+    updateTicketStatus
 };
 
-
-// db.js - Funzione per aggiornare lo stato di un ticket
-function updateTicketStatus(id, status, callback) {
-    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
-
-    connection.query(sql, [status, id], (err, result) => {
-        if (err) {
-            console.error('Error updating ticket status: ' + err.stack);
-            return callback(err);
-        }
-        callback(null, result);
-    });
-}
 
 
 
