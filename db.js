@@ -133,6 +133,19 @@ function deleteTicketById(id, callback) {
         callback(null, result);
     });
 }
+// Funzione per ottenere tutte le risposte a un commento
+function getRepliesByCommentId(comment_id, callback) {
+    const sql = 'SELECT * FROM comment_replies WHERE comment_id = ? ORDER BY created_at ASC';
+
+    connection.query(sql, [comment_id], (err, results) => {
+        if (err) {
+            console.error('Error retrieving replies: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, results);
+    });
+}
+
 
 // Funzione per aggiornare lo stato di un ticket
 function updateTicketStatus(id, status, callback) {
