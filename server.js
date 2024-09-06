@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: 'http://localhost:3000',
-        methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Aggiunto PUT e DELETE
+        methods: ['GET', 'POST', 'PUT', 'DELETE'], // Aggiunto PUT e DELETE
     }
 });
 
@@ -25,7 +25,6 @@ const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro sock
 
 // Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti e risposte
 const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment, getCommentsByTicketId } = require('./db');
-
 
 // Connessione al database MySQL
 const mysql = require('mysql2');
@@ -137,7 +136,7 @@ app.delete('/tickets/:id', (req, res) => {
     });
 });
 
-// ENDPOINT PER ELIMINARE UN COMMENTO
+// Endpoint per eliminare un commento
 app.delete('/comments/:commentId', (req, res) => {
     const { commentId } = req.params;
 
@@ -152,6 +151,8 @@ app.delete('/comments/:commentId', (req, res) => {
         res.status(200).json({ message: `Comment with id ${commentId} deleted` });
     });
 });
+
+// Endpoint per ottenere tutti i ticket di phishing
 app.get('/phishing-tickets', (req, res) => {
     const sql = 'SELECT * FROM phishing_tickets';
     connection.query(sql, (err, results) => {
@@ -161,6 +162,8 @@ app.get('/phishing-tickets', (req, res) => {
         res.json(results);
     });
 });
+
+// Endpoint per creare un ticket di phishing
 app.post('/phishing-tickets', (req, res) => {
     const { domain, severity, status } = req.body;
     const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
@@ -173,6 +176,7 @@ app.post('/phishing-tickets', (req, res) => {
     });
 });
 
+// Endpoint per ottenere i commenti di un ticket di phishing
 app.get('/phishing-tickets/:id/comments', (req, res) => {
     const { id } = req.params;
     const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ?';
@@ -184,6 +188,8 @@ app.get('/phishing-tickets/:id/comments', (req, res) => {
         res.json(results);
     });
 });
+
+// Endpoint per aggiungere un commento a un ticket di phishing
 app.post('/phishing-tickets/:id/comment', (req, res) => {
     const { id } = req.params;
     const { comment_text } = req.body;
@@ -196,6 +202,8 @@ app.post('/phishing-tickets/:id/comment', (req, res) => {
         res.json({ id: result.insertId });
     });
 });
+
+// Endpoint per aggiungere una risposta a un commento di phishing
 app.post('/phishing-comments/:commentId/reply', (req, res) => {
     const { commentId } = req.params;
     const { reply_text } = req.body;
@@ -208,6 +216,8 @@ app.post('/phishing-comments/:commentId/reply', (req, res) => {
         res.json({ id: result.insertId });
     });
 });
+
+// Endpoint per chiudere un ticket
 app.put('/tickets/:id/close', (req, res) => {
     const { id } = req.params;
 
@@ -219,6 +229,7 @@ app.put('/tickets/:id/close', (req, res) => {
     });
 });
 
+// Endpoint per eliminare un ticket di phishing
 app.delete('/phishing-tickets/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM phishing_tickets WHERE id = ?';
@@ -230,6 +241,8 @@ app.delete('/phishing-tickets/:id', (req, res) => {
         res.status(200).json({ message: `Ticket with id ${id} deleted` });
     });
 });
+
+// Endpoint per eliminare un commento di phishing
 app.delete('/phishing-comments/:commentId', (req, res) => {
     const { commentId } = req.params;
     const sql = 'DELETE FROM phishing_comments WHERE id = ?';
@@ -266,22 +279,3 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
