@@ -20,25 +20,55 @@ app.use(cors({
     optionsSuccessStatus: 200,
 }));
 
-let tickets = []; // Array vuoto per memorizzare i ticket
 let messages = []; // Array per memorizzare i messaggi
 const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
+
+// Importa le funzioni per creare e recuperare i ticket dal database
+const { createTicket, getTicketById } = require('./db'); // Assicurati che il file db.js esista e contenga le funzioni
+const { getAllTickets } = require('./db'); // Importa la funzione per ottenere i ticket
+
+// Endpoint per ottenere tutti i ticket
+app.get('/tickets', (req, res) => {
+    getAllTickets((err, tickets) => {
+        if (err) {
+            return res.status(500).send('Error retrieving tickets');
+        }
+        res.json(tickets);
+    });
+});
+
+// Endpoint per recuperare un ticket tramite ID
+app.get('/ticket/:id', (req, res) => {
+    const ticketId = req.params.id;
+
+    // Chiama la funzione per ottenere il ticket tramite ID
+    getTicketById(ticketId, (err, ticket) => {
+        if (err) {
+            if (err.message === 'No ticket found with this ID') {
+                return res.status(404).send(err.message);
+            }
+            return res.status(500).send('Error retrieving ticket');
+        }
+        res.json(ticket);
+    });
+});
 
 // Endpoint per ottenere un messaggio di prova
 app.get('/api/data', (req, res) => {
     res.json({ message: 'Hello from the back end!' });
 });
 
-// Endpoint per ottenere tutti i ticket
-app.get('/tickets', (req, res) => {
-    res.json(tickets);
-});
-
-// Endpoint per creare un nuovo ticket
+// Endpoint per creare un nuovo ticket e salvarlo nel database
 app.post('/tickets', (req, res) => {
-    const newTicket = { ...req.body, id: tickets.length + 1, comments: [] };
-    tickets.push(newTicket);
-    res.status(201).json(newTicket);
+    const { name, status, category, severity, content, actions } = req.body;
+
+    // Usa la funzione createTicket per salvare il ticket nel database
+    createTicket(name, status, category, severity, content, actions, (err, ticketId) => {
+        if (err) {
+            return res.status(500).send('Error creating ticket');
+        }
+        res.status(201).json({ id: ticketId, message: 'Ticket created successfully' });
+    });
 });
 
 // Endpoint per eliminare un ticket
@@ -101,7 +131,6 @@ app.put('/tickets/phishing/:id/close', (req, res) => {
     res.status(200).json(ticket);
 });
 
-
 // Endpoint per ottenere tutti i messaggi
 app.get('/messages', (req, res) => {
     res.json(messages);
@@ -151,6 +180,9 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+
+
 
 
 
