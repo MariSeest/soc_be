@@ -26,6 +26,24 @@ const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro sock
 // Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti ai ticket dal database
 const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus } = require('./db');
 
+// Connessione al database MySQL
+const mysql = require('mysql2');
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'db_user',
+    password: 'db_user_pass',
+    database: 'soc_platform',
+    port: 3306
+});
+
+connection.connect((err) => {
+    if (err) {
+        console.error('Error connecting to MySQL: ' + err.stack);
+        return;
+    }
+    console.log('Connected to MySQL as ID ' + connection.threadId);
+});
+
 // Endpoint per ottenere tutti i ticket
 app.get('/tickets', (req, res) => {
     getAllTickets((err, tickets) => {
@@ -52,15 +70,25 @@ app.get('/ticket/:id', (req, res) => {
     });
 });
 
-// Endpoint per ottenere i commenti di un ticket tramite ID
+// Endpoint per ottenere i commenti di un ticket tramite ID (aggiornato)
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
-    getCommentsByTicketId(id, (err, comments) => {
+    const sql = 'SELECT comment_text, created_at FROM comments WHERE ticket_id = ?';
+
+    connection.query(sql, [id], (err, results) => {
         if (err) {
-            return res.status(500).send('Error retrieving comments');
+            console.error('Error retrieving comments: ' + err.stack);
+            return res.status(500).json({ error: 'Error retrieving comments' });
         }
-        res.json(comments);
+
+        console.log(results);  // Verifica cosa viene restituito dal database
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'No comments found for this ticket' });
+        }
+
+        res.json(results);
     });
 });
 
@@ -119,50 +147,39 @@ app.put('/tickets/:id', (req, res) => {
         res.status(200).json({ message: `Ticket with id ${id} updated` });
     });
 });
+//ENDPOINT PER ELIMINARE UN COMMENTO
+app.delete('/comments/:commentId', (req, res) => {
+    const { commentId } = req.params;
 
-// Endpoint per ottenere solo i ticket di phishing
-app.get('/tickets/phishing', (req, res) => {
-    const phishingTickets = tickets.filter(ticket => ticket.category === 'phishing');
-    res.json(phishingTickets);
+    const sql = 'DELETE FROM comments WHERE id = ?';
+
+    connection.query(sql, [commentId], (err, result) => {
+        if (err) {
+            console.error('Error deleting comment: ' + err.stack);
+            return res.status(500).json({ error: 'Error deleting comment' });
+        }
+
+        res.status(200).json({ message: `Comment with id ${commentId} deleted` });
+    });
+});
+// Aggiungi questo nuovo endpoint per rispondere a un commento
+app.post('/comments/:commentId/reply', (req, res) => {
+    const { commentId } = req.params;
+    const { reply } = req.body;
+
+    const sql = 'INSERT INTO comment_replies (comment_id, reply_text) VALUES (?, ?)';
+
+    connection.query(sql, [commentId, reply], (err, result) => {
+        if (err) {
+            console.error('Error adding reply: ' + err.stack);
+            return res.status(500).json({ error: 'Error adding reply' });
+        }
+
+        res.status(201).json({ message: `Reply added to comment with id ${commentId}` });
+    });
 });
 
-// Endpoint per chiudere un ticket di phishing
-app.put('/tickets/phishing/:id/close', (req, res) => {
-    const { id } = req.params;
-    const ticket = tickets.find(ticket => ticket.id === parseInt(id) && ticket.category === 'phishing');
 
-    if (!ticket) {
-        return res.status(404).json({ message: `Phishing ticket with id ${id} not found` });
-    }
-
-    ticket.status = 'closed';
-    res.status(200).json(ticket);
-});
-
-// Endpoint per ottenere tutti i messaggi
-app.get('/messages', (req, res) => {
-    res.json(messages);
-});
-
-// Endpoint per inviare un nuovo messaggio
-app.post('/messages', (req, res) => {
-    const message = req.body;
-    if (!message.recipient) {
-        return res.status(400).json({ error: 'Recipient is required' });
-    }
-
-    messages.push(message);
-    const recipientSocketId = userSockets[message.recipient];
-    if (recipientSocketId) {
-        io.to(recipientSocketId).emit('chat message', message);
-    }
-    res.status(201).json(message);
-});
-
-// Endpoint per ottenere la lista di utenti
-app.get('/users', (req, res) => {
-    res.json(Object.keys(userSockets));
-});
 
 // Gestione delle connessioni socket
 io.on('connection', (socket) => {
@@ -188,6 +205,8 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+
 
 
 
