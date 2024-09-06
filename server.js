@@ -23,8 +23,8 @@ app.use(cors({
 let messages = []; // Array per memorizzare i messaggi
 const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
 
-// Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti ai ticket dal database
-const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus } = require('./db');
+// Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti e risposte
+const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment } = require('./db');
 
 // Connessione al database MySQL
 const mysql = require('mysql2');
@@ -70,31 +70,38 @@ app.get('/ticket/:id', (req, res) => {
     });
 });
 
-// Endpoint per ottenere i commenti di un ticket tramite ID (aggiornato)
+// Endpoint per ottenere i commenti di un ticket tramite ID (aggiornato per includere le risposte)
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
-    const sql = 'SELECT comment_text, created_at FROM comments WHERE ticket_id = ?';
+    const sql = 'SELECT * FROM comments WHERE ticket_id = ?';
 
-    connection.query(sql, [id], (err, results) => {
+    connection.query(sql, [id], (err, comments) => {
         if (err) {
-            console.error('Error retrieving comments: ' + err.stack);
             return res.status(500).json({ error: 'Error retrieving comments' });
         }
 
-        console.log(results);  // Verifica cosa viene restituito dal database
-
-        if (results.length === 0) {
-            return res.status(404).json({ message: 'No comments found for this ticket' });
+        const commentIds = comments.map(comment => comment.id);
+        if (commentIds.length === 0) {
+            return res.json([]);  // Nessun commento
         }
 
-        res.json(results);
-    });
-});
+        // Recupera anche le risposte per ogni commento
+        const replySql = 'SELECT * FROM comment_replies WHERE comment_id IN (?)';
+        connection.query(replySql, [commentIds], (err, replies) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error retrieving replies' });
+            }
 
-// Endpoint per ottenere un messaggio di prova
-app.get('/api/data', (req, res) => {
-    res.json({ message: 'Hello from the back end!' });
+            // Mappa le risposte ai commenti corrispondenti
+            const commentsWithReplies = comments.map(comment => ({
+                ...comment,
+                replies: replies.filter(reply => reply.comment_id === comment.id)
+            }));
+
+            res.json(commentsWithReplies);
+        });
+    });
 });
 
 // Endpoint per creare un nuovo ticket e salvarlo nel database
@@ -122,7 +129,7 @@ app.delete('/tickets/:id', (req, res) => {
     });
 });
 
-// Endpoint per aggiungere un commento a un ticket utilizzando addCommentToTicket
+// Endpoint per aggiungere un commento a un ticket
 app.post('/tickets/:id/comment', (req, res) => {
     const { id } = req.params;
     const { comment } = req.body;
@@ -134,7 +141,8 @@ app.post('/tickets/:id/comment', (req, res) => {
         res.status(200).json({ message: `Comment added to ticket with id ${id}` });
     });
 });
-//Endpoint per gestire le risposte
+
+// Endpoint per ottenere le risposte di un commento
 app.get('/comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
 
@@ -145,7 +153,8 @@ app.get('/comments/:commentId/replies', (req, res) => {
         res.json(replies);
     });
 });
-//endpoint per aggiungere una risposta a un commento
+
+// Endpoint per aggiungere una risposta a un commento
 app.post('/comments/:commentId/reply', (req, res) => {
     const { commentId } = req.params;
     const { reply } = req.body;
@@ -157,8 +166,6 @@ app.post('/comments/:commentId/reply', (req, res) => {
         res.status(201).json({ message: `Reply added to comment with id ${commentId}` });
     });
 });
-
-
 
 // Endpoint per aggiornare lo stato di un ticket utilizzando updateTicketStatus
 app.put('/tickets/:id', (req, res) => {
@@ -172,7 +179,8 @@ app.put('/tickets/:id', (req, res) => {
         res.status(200).json({ message: `Ticket with id ${id} updated` });
     });
 });
-//ENDPOINT PER ELIMINARE UN COMMENTO
+
+// ENDPOINT PER ELIMINARE UN COMMENTO
 app.delete('/comments/:commentId', (req, res) => {
     const { commentId } = req.params;
 
@@ -187,24 +195,6 @@ app.delete('/comments/:commentId', (req, res) => {
         res.status(200).json({ message: `Comment with id ${commentId} deleted` });
     });
 });
-// Aggiungi questo nuovo endpoint per rispondere a un commento
-app.post('/comments/:commentId/reply', (req, res) => {
-    const { commentId } = req.params;
-    const { reply } = req.body;
-
-    const sql = 'INSERT INTO comment_replies (comment_id, reply_text) VALUES (?, ?)';
-
-    connection.query(sql, [commentId, reply], (err, result) => {
-        if (err) {
-            console.error('Error adding reply: ' + err.stack);
-            return res.status(500).json({ error: 'Error adding reply' });
-        }
-
-        res.status(201).json({ message: `Reply added to comment with id ${commentId}` });
-    });
-});
-
-
 
 // Gestione delle connessioni socket
 io.on('connection', (socket) => {
@@ -230,6 +220,7 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
 
 
 
