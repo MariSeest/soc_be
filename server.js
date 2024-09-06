@@ -134,6 +134,31 @@ app.post('/tickets/:id/comment', (req, res) => {
         res.status(200).json({ message: `Comment added to ticket with id ${id}` });
     });
 });
+//Endpoint per gestire le risposte
+app.get('/comments/:commentId/replies', (req, res) => {
+    const { commentId } = req.params;
+
+    getRepliesByCommentId(commentId, (err, replies) => {
+        if (err) {
+            return res.status(500).send('Error retrieving replies');
+        }
+        res.json(replies);
+    });
+});
+//endpoint per aggiungere una risposta a un commento
+app.post('/comments/:commentId/reply', (req, res) => {
+    const { commentId } = req.params;
+    const { reply } = req.body;
+
+    addReplyToComment(commentId, reply, (err, result) => {
+        if (err) {
+            return res.status(500).send('Error adding reply');
+        }
+        res.status(201).json({ message: `Reply added to comment with id ${commentId}` });
+    });
+});
+
+
 
 // Endpoint per aggiornare lo stato di un ticket utilizzando updateTicketStatus
 app.put('/tickets/:id', (req, res) => {

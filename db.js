@@ -62,6 +62,18 @@ function getAllTickets(callback) {
         callback(null, results);
     });
 }
+//gestire le risposte ai commenti
+function getRepliesByCommentId(comment_id, callback) {
+    const sql = 'SELECT * FROM comment_replies WHERE comment_id = ? ORDER BY created_at ASC';
+
+    connection.query(sql, [comment_id], (err, results) => {
+        if (err) {
+            console.error('Error retrieving replies: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, results);
+    });
+}
 
 // Funzione per eliminare un ticket
 function deleteTicketById(id, callback) {
@@ -89,6 +101,19 @@ function addCommentToTicket(ticket_id, comment_text, callback) {
         callback(null, result);
     });
 }
+function addReplyToComment(comment_id, reply_text, callback) {
+    const sql = 'INSERT INTO comment_replies (comment_id, reply_text) VALUES (?, ?)';
+
+    connection.query(sql, [comment_id, reply_text], (err, result) => {
+        if (err) {
+            console.error('Error adding reply: ' + err.stack);
+            return callback(err);
+        }
+        console.log(`Reply added to comment ID ${comment_id}`);
+        callback(null, result);
+    });
+}
+
 // Funzione per ottenere tutti i commenti di un ticket
 function getCommentsByTicketId(ticket_id, callback) {
     const sql = 'SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at ASC';
@@ -123,7 +148,9 @@ module.exports = {
     getAllTickets,
     deleteTicketById,
     addCommentToTicket,
-    updateTicketStatus
+    updateTicketStatus,
+    getRepliesByCommentId,
+    addReplyToComment
 };
 
 
