@@ -17,7 +17,9 @@ const {
     getAllPhishingTickets,
     addPhishingComment,
     addPhishingReply,
-    getCommentsByPhishingTicketId
+    getCommentsByPhishingTicketId,
+    createPhishingTicket,
+    closePhishingTicket
 } = require('./db');
 
 const app = express();
@@ -233,15 +235,20 @@ app.get('/phishing_tickets', (req, res) => {
 // Endpoint per aggiungere un commento a un ticket di phishing (POST)
 app.post('/phishing_tickets/:id/comments', (req, res) => {
     const { id } = req.params;
-    const { comment_text } = req.body;
-    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
-    connection.query(sql, [id, comment_text], (err, result) => {
+    const { comment_text, author } = req.body;
+
+    if (!comment_text || !author) {
+        return res.status(400).json({ error: 'Missing comment text or author' });
+    }
+
+    addPhishingComment(id, comment_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding comment to phishing ticket' });
         }
         res.status(201).json({ message: 'Comment added to phishing ticket', commentId: result.insertId });
     });
 });
+
 // Endpoint per creare un nuovo ticket di phishing (POST)
 app.post('/phishing_tickets', (req, res) => {
     const { domain, severity, status } = req.body;
@@ -250,13 +257,11 @@ app.post('/phishing_tickets', (req, res) => {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
-    connection.query(sql, [domain, severity, status], (err, result) => {
+    createPhishingTicket(domain, severity, status, (err, ticketId) => {
         if (err) {
-            console.error('Error creating phishing ticket:', err);
             return res.status(500).json({ error: 'Error creating phishing ticket' });
         }
-        res.status(201).json({ message: 'Phishing ticket created', ticketId: result.insertId });
+        res.status(201).json({ message: 'Phishing ticket created', ticketId });
     });
 });
 
@@ -264,9 +269,13 @@ app.post('/phishing_tickets', (req, res) => {
 // Endpoint per aggiungere una risposta a un commento di phishing (POST)
 app.post('/phishing_comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
-    const { reply_text } = req.body;
-    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
-    connection.query(sql, [commentId, reply_text], (err, result) => {
+    const { reply_text, author } = req.body;
+
+    if (!reply_text || !author) {
+        return res.status(400).json({ error: 'Missing reply text or author' });
+    }
+
+    addPhishingReply(commentId, reply_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding reply to phishing comment' });
         }
@@ -278,20 +287,25 @@ app.post('/phishing_comments/:commentId/replies', (req, res) => {
 app.get('/phishing_tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
-    const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ?';
-    connection.query(sql, [id], (err, results) => {
+    getCommentsByPhishingTicketId(id, (err, comments) => {
         if (err) {
-            console.error('Error retrieving comments:', err);
-            return res.status(500).json({ error: 'Error retrieving comments' });
+            return res.status(500).json({ error: 'Error retrieving phishing comments', err });
         }
-        res.status(200).json(results);
+
+        const commentsWithReplies = comments.map(comment => ({
+            ...comment,
+            replies: comment.replies || []  // Imposta replies come array vuoto se non esiste
+        }));
+
+        res.status(200).json(commentsWithReplies);
     });
 });
+
 // Endpoint per chiudere un ticket di phishing
 app.put('/phishing_tickets/:id/close', (req, res) => {
     const { id } = req.params;
-    const sql = 'UPDATE phishing_tickets SET status = ? WHERE id = ?';
-    connection.query(sql, ['closed', id], (err, result) => {
+
+    closePhishingTicket(id, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error closing phishing ticket' });
         }

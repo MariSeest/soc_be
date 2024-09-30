@@ -73,30 +73,73 @@ function getAllPhishingTickets(callback) {
         callback(null, results);
     });
 }
+// Funzione per creare un nuovo ticket di phishing
+function createPhishingTicket(domain, severity, status, callback) {
+    const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
+    const values = [domain, severity, status];
+
+    connection.query(sql, values, (err, result) => {
+        if (err) {
+            console.error('Error creating phishing ticket: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, result.insertId);
+    });
+}
 
 // Funzione per aggiungere un commento a un ticket di phishing
-function addPhishingComment(ticket_id, comment_text, callback) {
-    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
+function addPhishingComment(ticket_id, comment_text, author, callback) {
+    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text, author) VALUES (?, ?, ?)';
 
-    connection.query(sql, [ticket_id, comment_text], (err, result) => {
+    connection.query(sql, [ticket_id, comment_text, author], (err, result) => {
         if (err) {
             return callback(err);
         }
         callback(null, result);
     });
 }
-
 // Funzione per aggiungere una risposta a un commento di phishing
-function addPhishingReply(comment_id, reply_text, callback) {
-    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
+function addPhishingReply(comment_id, reply_text, author, callback) {
+    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
 
-    connection.query(sql, [comment_id, reply_text], (err, result) => {
+    connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
             return callback(err);
         }
         callback(null, result);
     });
 }
+// Funzione per ottenere i commenti di un ticket di phishing e le relative risposte
+function getCommentsByPhishingTicketId(ticket_id, callback) {
+    const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ? ORDER BY created_at ASC';
+
+    connection.query(sql, [ticket_id], (err, comments) => {
+        if (err) {
+            return callback(err);
+        }
+
+        const commentIds = comments.map(comment => comment.id);
+        if (commentIds.length === 0) {
+            return callback(null, []);  // Nessun commento
+        }
+
+        const replySql = 'SELECT * FROM phishing_replies WHERE comment_id IN (?) ORDER BY created_at ASC';
+        connection.query(replySql, [commentIds], (err, replies) => {
+            if (err) {
+                return callback(err);
+            }
+
+            const commentsWithReplies = comments.map(comment => ({
+                ...comment,
+                replies: replies.filter(reply => reply.comment_id === comment.id)
+            }));
+
+            callback(null, commentsWithReplies);
+        });
+    });
+}
+
+
 
 // Funzione per ottenere i commenti di un ticket e le relative risposte
 function getCommentsByTicketId(ticket_id, callback) {
@@ -129,6 +172,17 @@ function getCommentsByTicketId(ticket_id, callback) {
         });
     });
 }
+// Funzione per aggiornare lo stato di un ticket di phishing
+function closePhishingTicket(ticket_id, callback) {
+    const sql = 'UPDATE phishing_tickets SET status = ? WHERE id = ?';
+    connection.query(sql, ['closed', ticket_id], (err, result) => {
+        if (err) {
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
+
 
 // Funzione per aggiungere un commento a un ticket
 function addCommentToTicket(ticket_id, comment_text, author, callback) {
@@ -155,18 +209,7 @@ function addReplyToComment(comment_id, reply_text, author, callback) {
 }
 
 
-// Funzione per aggiungere una risposta a un commento
-function addReplyToComment(comment_id, reply_text, author, callback) {
-    const sql = 'INSERT INTO comment_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
 
-    connection.query(sql, [comment_id, reply_text, author], (err, result) => {
-        if (err) {
-            console.error('Error adding reply: ' + err.stack);
-            return callback(err);
-        }
-        callback(null, result);
-    });
-}
 
 // Funzione per eliminare un ticket
 function deleteTicketById(id, callback) {
@@ -232,6 +275,12 @@ module.exports = {
     updateTicketStatus,
     getRepliesByCommentId,
     addReplyToComment,
+    getAllPhishingTickets,
     getCommentsByTicketId,
-    saveChatMessage
+    saveChatMessage,
+    createPhishingTicket,
+    addPhishingComment,
+    addPhishingReply,
+    getCommentsByPhishingTicketId,
+    closePhishingTicket
 };
