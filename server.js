@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const mysql = require('mysql2');
+const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment, getCommentsByTicketId, saveChatMessage } = require('./db'); // Assicurati che esista nel file db.js
 
 const app = express();
 const port = 3001;
@@ -10,8 +12,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: 'http://localhost:3000',
-        methods: ['GET', 'POST', 'PUT', 'DELETE'], // Aggiunto PUT e DELETE
-    }
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    },
 });
 
 app.use(express.json());
@@ -20,20 +22,13 @@ app.use(cors({
     optionsSuccessStatus: 200,
 }));
 
-let messages = []; // Array per memorizzare i messaggi
-const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
-
-// Importa le funzioni per creare, recuperare, eliminare, aggiornare ed aggiungere commenti e risposte
-const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment, getCommentsByTicketId } = require('./db');
-
 // Connessione al database MySQL
-const mysql = require('mysql2');
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'db_user',
     password: 'db_user_pass',
     database: 'soc_platform',
-    port: 3306
+    port: 3306,
 });
 
 connection.connect((err) => {
@@ -42,6 +37,23 @@ connection.connect((err) => {
         return;
     }
     console.log('Connected to MySQL as ID ' + connection.threadId);
+});
+
+// Endpoint per salvare i messaggi della chat
+app.post('/messages', (req, res) => {
+    const { sender, recipient, text } = req.body;
+
+    if (!sender || !recipient || !text) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    saveChatMessage(sender, recipient, text, (err, result) => {
+        if (err) {
+            console.error('Error saving message:', err);
+            return res.status(500).json({ error: 'Error saving message to database' });
+        }
+        res.status(200).json({ message: 'Message saved' });
+    });
 });
 
 // Endpoint per ottenere tutti i ticket
@@ -124,7 +136,7 @@ app.post('/comments/:commentId/reply', (req, res) => {
     });
 });
 
-// Endpoint per eliminare un ticket utilizzando deleteTicketById
+// Endpoint per eliminare un ticket
 app.delete('/tickets/:id', (req, res) => {
     const { id } = req.params;
 
@@ -152,116 +164,50 @@ app.delete('/comments/:commentId', (req, res) => {
     });
 });
 
-// Endpoint per ottenere tutti i ticket di phishing
-app.get('/phishing-tickets', (req, res) => {
-    const sql = 'SELECT * FROM phishing_tickets';
+// Endpoint per recuperare i messaggi della chat per il frontend
+app.get('/messages', (req, res) => {
+    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC';
+
     connection.query(sql, (err, results) => {
         if (err) {
-            return res.status(500).json({ error: 'Error retrieving phishing tickets' });
+            return res.status(500).json({ error: 'Error retrieving messages' });
         }
         res.json(results);
     });
 });
 
-// Endpoint per creare un ticket di phishing
-app.post('/phishing-tickets', (req, res) => {
-    const { domain, severity, status } = req.body;
-    const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
+// Gestione delle connessioni Socket.io
+const userSockets = {}; // Mappa per tenere traccia degli utenti e dei loro socket.id
 
-    connection.query(sql, [domain, severity, status], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error creating phishing ticket' });
-        }
-        res.json({ id: result.insertId });
-    });
-});
-
-// Endpoint per ottenere i commenti di un ticket di phishing
-app.get('/phishing-tickets/:id/comments', (req, res) => {
-    const { id } = req.params;
-    const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ?';
-
-    connection.query(sql, [id], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error retrieving comments' });
-        }
-        res.json(results);
-    });
-});
-
-// Endpoint per aggiungere un commento a un ticket di phishing
-app.post('/phishing-tickets/:id/comment', (req, res) => {
-    const { id } = req.params;
-    const { comment_text } = req.body;
-    const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
-
-    connection.query(sql, [id, comment_text], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error adding comment' });
-        }
-        res.json({ id: result.insertId });
-    });
-});
-
-// Endpoint per aggiungere una risposta a un commento di phishing
-app.post('/phishing-comments/:commentId/reply', (req, res) => {
-    const { commentId } = req.params;
-    const { reply_text } = req.body;
-    const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
-
-    connection.query(sql, [commentId, reply_text], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error adding reply' });
-        }
-        res.json({ id: result.insertId });
-    });
-});
-
-// Endpoint per chiudere un ticket
-app.put('/tickets/:id/close', (req, res) => {
-    const { id } = req.params;
-
-    updateTicketStatus(id, 'closed', (err, result) => {
-        if (err) {
-            return res.status(500).send('Error closing ticket');
-        }
-        res.status(200).json({ message: `Ticket with id ${id} closed` });
-    });
-});
-
-// Endpoint per eliminare un ticket di phishing
-app.delete('/phishing-tickets/:id', (req, res) => {
-    const { id } = req.params;
-    const sql = 'DELETE FROM phishing_tickets WHERE id = ?';
-
-    connection.query(sql, [id], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error deleting ticket' });
-        }
-        res.status(200).json({ message: `Ticket with id ${id} deleted` });
-    });
-});
-
-// Endpoint per eliminare un commento di phishing
-app.delete('/phishing-comments/:commentId', (req, res) => {
-    const { commentId } = req.params;
-    const sql = 'DELETE FROM phishing_comments WHERE id = ?';
-
-    connection.query(sql, [commentId], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error deleting comment' });
-        }
-        res.status(200).json({ message: `Comment with id ${commentId} deleted` });
-    });
-});
-
-// Gestione delle connessioni socket
 io.on('connection', (socket) => {
     console.log('a user connected');
 
     socket.on('register', (username) => {
         userSockets[username] = socket.id;
         console.log(`${username} registered with socket id ${socket.id}`);
+    });
+
+    // Invia il messaggio tramite Socket.io
+    socket.on('chat message', (msg) => {
+        const { sender, recipient, text } = msg;
+
+        console.log('Received chat message:', msg);
+
+        // Salva il messaggio su MySQL
+        saveChatMessage(sender, recipient, text, (err, result) => {
+            if (err) {
+                console.error('Error saving message:', err);
+                socket.emit('error', 'Message could not be saved');
+                return;
+            }
+            console.log('Message saved to database');
+
+            // Emetti il messaggio al destinatario se connesso
+            const recipientSocketId = userSockets[recipient];
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('chat message', msg);
+            }
+        });
     });
 
     socket.on('disconnect', () => {

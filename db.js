@@ -6,7 +6,7 @@ const connection = mysql.createConnection({
     user: 'db_user',
     password: 'db_user_pass',
     database: 'soc_platform',
-    port: 3306
+    port: 3306,
 });
 
 // Gestione della connessione
@@ -62,6 +62,8 @@ function getAllTickets(callback) {
         callback(null, results);
     });
 }
+
+// Funzione per ottenere tutti i ticket di phishing
 function getAllPhishingTickets(callback) {
     const sql = 'SELECT * FROM phishing_tickets';
     connection.query(sql, (err, results) => {
@@ -71,6 +73,8 @@ function getAllPhishingTickets(callback) {
         callback(null, results);
     });
 }
+
+// Funzione per aggiungere un commento a un ticket di phishing
 function addPhishingComment(ticket_id, comment_text, callback) {
     const sql = 'INSERT INTO phishing_comments (ticket_id, comment_text) VALUES (?, ?)';
 
@@ -81,6 +85,8 @@ function addPhishingComment(ticket_id, comment_text, callback) {
         callback(null, result);
     });
 }
+
+// Funzione per aggiungere una risposta a un commento di phishing
 function addPhishingReply(comment_id, reply_text, callback) {
     const sql = 'INSERT INTO phishing_replies (comment_id, reply_text) VALUES (?, ?)';
 
@@ -91,7 +97,6 @@ function addPhishingReply(comment_id, reply_text, callback) {
         callback(null, result);
     });
 }
-
 
 // Funzione per ottenere i commenti di un ticket e le relative risposte
 function getCommentsByTicketId(ticket_id, callback) {
@@ -163,6 +168,7 @@ function deleteTicketById(id, callback) {
         callback(null, result);
     });
 }
+
 // Funzione per ottenere tutte le risposte a un commento
 function getRepliesByCommentId(comment_id, callback) {
     const sql = 'SELECT * FROM comment_replies WHERE comment_id = ? ORDER BY created_at ASC';
@@ -175,7 +181,6 @@ function getRepliesByCommentId(comment_id, callback) {
         callback(null, results);
     });
 }
-
 
 // Funzione per aggiornare lo stato di un ticket
 function updateTicketStatus(id, status, callback) {
@@ -190,6 +195,21 @@ function updateTicketStatus(id, status, callback) {
     });
 }
 
+// Funzione per salvare i messaggi della chat
+function saveChatMessage(sender, recipient, message, callback) {
+    const sql = 'INSERT INTO chat_messages (sender, recipient, message) VALUES (?, ?, ?)';
+    const values = [sender, recipient, message];
+
+    connection.query(sql, values, (err, result) => {
+        if (err) {
+            console.error('Error saving chat message to MySQL:', err.stack); // Log dettagliato dell'errore
+            return callback(err);
+        }
+        console.log('Chat message saved to database:', result);
+        callback(null, result);
+    });
+}
+
 // Esporta le funzioni per essere utilizzate in altri file
 module.exports = {
     createTicket,
@@ -200,6 +220,6 @@ module.exports = {
     updateTicketStatus,
     getRepliesByCommentId,
     addReplyToComment,
-    getCommentsByTicketId
+    getCommentsByTicketId,
+    saveChatMessage
 };
-
