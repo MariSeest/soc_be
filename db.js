@@ -131,10 +131,9 @@ function getCommentsByTicketId(ticket_id, callback) {
 }
 
 // Funzione per aggiungere un commento a un ticket
-function addCommentToTicket(ticket_id, comment_text, callback) {
-    const sql = 'INSERT INTO comments (ticket_id, comment_text) VALUES (?, ?)';
-
-    connection.query(sql, [ticket_id, comment_text], (err, result) => {
+function addCommentToTicket(ticket_id, comment_text, author, callback) {
+    const sql = 'INSERT INTO comments (ticket_id, comment_text, author) VALUES (?, ?, ?)';
+    connection.query(sql, [ticket_id, comment_text, author], (err, result) => {
         if (err) {
             console.error('Error adding comment: ' + err.stack);
             return callback(err);
@@ -144,10 +143,23 @@ function addCommentToTicket(ticket_id, comment_text, callback) {
 }
 
 // Funzione per aggiungere una risposta a un commento
-function addReplyToComment(comment_id, reply_text, callback) {
-    const sql = 'INSERT INTO comment_replies (comment_id, reply_text) VALUES (?, ?)';
+function addReplyToComment(comment_id, reply_text, author, callback) {
+    const sql = 'INSERT INTO comment_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
+    connection.query(sql, [comment_id, reply_text, author], (err, result) => {
+        if (err) {
+            console.error('Error adding reply: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
 
-    connection.query(sql, [comment_id, reply_text], (err, result) => {
+
+// Funzione per aggiungere una risposta a un commento
+function addReplyToComment(comment_id, reply_text, author, callback) {
+    const sql = 'INSERT INTO comment_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
+
+    connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
             console.error('Error adding reply: ' + err.stack);
             return callback(err);
