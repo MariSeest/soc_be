@@ -93,6 +93,23 @@ io.on('connection', (socket) => {
     });
 });
 
+// Endpoint per ottenere tutti i messaggi
+app.get('/messages', (req, res) => {
+    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC';
+    connection.query(sql, (err, results) => {
+        if (err) {
+            console.error('Error retrieving messages:', err);
+            return res.status(500).json({ error: 'Error retrieving messages' });
+        }
+        res.json(results);
+    });
+});
+
+// Endpoint per ottenere la lista degli utenti online
+app.get('/users', (req, res) => {
+    res.json(Object.keys(onlineUsers)); // Invia la lista degli utenti online
+});
+
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
