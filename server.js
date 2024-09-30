@@ -3,24 +3,32 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const mysql = require('mysql2');
-const { createTicket, getTicketById, getAllTickets, deleteTicketById, addCommentToTicket, updateTicketStatus, getRepliesByCommentId, addReplyToComment, getCommentsByTicketId, saveChatMessage } = require('./db'); // Assicurati che esista nel file db.js
+const {
+    createTicket,
+    getTicketById,
+    getAllTickets,
+    deleteTicketById,
+    addCommentToTicket,
+    updateTicketStatus,
+    getRepliesByCommentId,
+    addReplyToComment,
+    getCommentsByTicketId,
+    saveChatMessage
+} = require('./db'); // Assicurati che esista nel file db.js
 
 const app = express();
 const port = 3001;
 
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: 'http://localhost:3000',
-        methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    },
-});
-
-app.use(express.json());
+// Configura CORS per il backend Express
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: 'http://localhost:3000', // L'origine del tuo frontend
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // I metodi HTTP permessi
+    allowedHeaders: ['Content-Type', 'Authorization'], // Aggiungi altri header se necessari
+    credentials: true, // Se stai utilizzando cookie o autenticazione
     optionsSuccessStatus: 200,
 }));
+
+app.use(express.json()); // Middleware per il parsing del body delle richieste JSON
 
 // Connessione al database MySQL
 const connection = mysql.createConnection({
@@ -37,6 +45,17 @@ connection.connect((err) => {
         return;
     }
     console.log('Connected to MySQL as ID ' + connection.threadId);
+});
+
+// Configura Socket.IO con CORS
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: 'http://localhost:3000',
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true,
+    },
 });
 
 // Endpoint per salvare i messaggi della chat
@@ -65,7 +84,20 @@ app.get('/tickets', (req, res) => {
         res.json(tickets);
     });
 });
+//TEST request
+app.get('/messages', (req, res) => {
+    console.log('Fetching messages from the database...');
+    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC';
 
+    connection.query(sql, (err, results) => {
+        if (err) {
+            console.error('Error retrieving messages:', err.stack);
+            return res.status(500).json({ error: 'Error retrieving messages from database' });
+        }
+        console.log('Messages retrieved successfully');
+        res.json(results);
+    });
+});
 // Endpoint per recuperare un ticket tramite ID
 app.get('/ticket/:id', (req, res) => {
     const ticketId = req.params.id;
@@ -174,6 +206,21 @@ app.get('/messages', (req, res) => {
         }
         res.json(results);
     });
+});
+// Endpoint per ottenere la lista degli utenti
+app.get('/users', (req, res) => {
+    // Esempio statico: modifica questo codice per recuperare gli utenti da un database
+    const users = ['user1', 'user2', 'user3']; // Sostituisci con query al DB se necessario
+
+    res.json(users);
+});
+//TEST
+connection.query('SELECT 1', (err, results) => {
+    if (err) {
+        console.error('Connection test failed:', err.stack);
+    } else {
+        console.log('Database connection is working.');
+    }
 });
 
 // Gestione delle connessioni Socket.io
