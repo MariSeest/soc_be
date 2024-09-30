@@ -4,6 +4,17 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const mysql = require('mysql2');
 const { saveChatMessage } = require('./db'); // Assicurati che esista nel file db.js
+const {
+    createTicket,
+    getTicketById,
+    getAllTickets,
+    deleteTicketById,
+    addCommentToTicket,
+    updateTicketStatus,
+    getRepliesByCommentId,
+    addReplyToComment,
+    getCommentsByTicketId,
+} = require('./db');  // Aggiungi anche queste funzioni
 
 const app = express();
 const port = 3001;
@@ -39,10 +50,9 @@ connection.connect((err) => {
     console.log('Connected to MySQL as ID ' + connection.threadId);
 });
 
-// Gestione degli utenti online
+// Gestione degli utenti online per la chat
 let onlineUsers = {};
 
-// Quando un utente si connette
 io.on('connection', (socket) => {
     console.log('A user connected');
 
@@ -55,7 +65,7 @@ io.on('connection', (socket) => {
         io.emit('onlineUsers', Object.keys(onlineUsers));
     });
 
-    // Invia il messaggio tramite Socket.io
+    // Invia il messaggio tramite Socket.IO
     socket.on('chat message', (msg) => {
         const { sender, recipient, text } = msg;
 
@@ -93,23 +103,113 @@ io.on('connection', (socket) => {
     });
 });
 
-// Endpoint per ottenere tutti i messaggi
-app.get('/messages', (req, res) => {
-    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC';
-    connection.query(sql, (err, results) => {
+// Gestione dei ticket
+
+// Endpoint per creare un nuovo ticket (POST)
+app.post('/tickets', (req, res) => {
+    const { name, status, category, severity, content, actions } = req.body;
+    createTicket(name, status, category, severity, content, actions, (err, ticketId) => {
         if (err) {
-            console.error('Error retrieving messages:', err);
-            return res.status(500).json({ error: 'Error retrieving messages' });
+            return res.status(500).json({ error: 'Error creating ticket' });
         }
-        res.json(results);
+        res.status(201).json({ message: 'Ticket created', ticketId });
     });
 });
 
-// Endpoint per ottenere la lista degli utenti online
-app.get('/users', (req, res) => {
-    res.json(Object.keys(onlineUsers)); // Invia la lista degli utenti online
+// Endpoint per ottenere un ticket tramite ID (GET)
+app.get('/tickets/:id', (req, res) => {
+    const { id } = req.params;
+    getTicketById(id, (err, ticket) => {
+        if (err) {
+            if (err.message === 'No ticket found with this ID') {
+                return res.status(404).json({ error: 'Ticket not found' });
+            }
+            return res.status(500).json({ error: 'Error retrieving ticket' });
+        }
+        res.status(200).json(ticket);
+    });
 });
 
+// Endpoint per ottenere tutti i ticket (GET)
+app.get('/tickets', (req, res) => {
+    getAllTickets((err, tickets) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving tickets' });
+        }
+        res.status(200).json(tickets);
+    });
+});
+
+// Endpoint per eliminare un ticket (DELETE)
+app.delete('/tickets/:id', (req, res) => {
+    const { id } = req.params;
+    deleteTicketById(id, (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error deleting ticket' });
+        }
+        res.status(200).json({ message: `Ticket with id ${id} deleted` });
+    });
+});
+
+// Endpoint per aggiornare lo stato di un ticket (PUT)
+app.put('/tickets/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    updateTicketStatus(id, status, (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error updating ticket status' });
+        }
+        res.status(200).json({ message: 'Ticket status updated' });
+    });
+});
+
+// Endpoint per ottenere i commenti di un ticket (GET)
+app.get('/tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+    getCommentsByTicketId(id, (err, comments) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving comments' });
+        }
+        res.status(200).json(comments);
+    });
+});
+
+// Endpoint per aggiungere un commento a un ticket (POST)
+app.post('/tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+    const { comment } = req.body;
+    addCommentToTicket(id, comment, (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error adding comment' });
+        }
+        res.status(201).json({ message: 'Comment added', commentId: result.insertId });
+    });
+});
+
+// Endpoint per aggiungere una risposta a un commento (POST)
+app.post('/comments/:commentId/replies', (req, res) => {
+    const { commentId } = req.params;
+    const { reply } = req.body;
+    addReplyToComment(commentId, reply, (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error adding reply' });
+        }
+        res.status(201).json({ message: 'Reply added', replyId: result.insertId });
+    });
+});
+
+// Endpoint per ottenere le risposte a un commento (GET)
+app.get('/comments/:commentId/replies', (req, res) => {
+    const { commentId } = req.params;
+    getRepliesByCommentId(commentId, (err, replies) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving replies' });
+        }
+        res.status(200).json(replies);
+    });
+});
+
+// Server per la chat
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
