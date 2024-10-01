@@ -405,6 +405,19 @@ app.put('/phishing_tickets/:id/close', (req, res) => {
     });
 });
 
+// Endpoint per ottenere i messaggi della chat (GET)
+app.get('/messages', (req, res) => {
+    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC'; // Supponendo che hai una tabella chat_messages
+
+    connection.query(sql, (err, results) => {
+        if (err) {
+            console.error('Error retrieving chat messages:', err);
+            return res.status(500).json({ error: 'Error retrieving chat messages' });
+        }
+        res.status(200).json(results);
+    });
+});
+
 // Avvio del server
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
