@@ -265,6 +265,18 @@ app.post('/phishing_tickets', (req, res) => {
     });
 });
 
+// Endpoint per riaprire un ticket di phishing
+app.put('/phishing_tickets/:id/reopen', (req, res) => {
+    const { id } = req.params;
+
+    const sql = 'UPDATE phishing_tickets SET status = ?, reopened_at = ? WHERE id = ?';
+    connection.query(sql, ['open', new Date(), id], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error reopening phishing ticket' });
+        }
+        res.status(200).json({ message: `Phishing ticket with ID ${id} reopened` });
+    });
+});
 
 // Endpoint per aggiungere una risposta a un commento di phishing (POST)
 app.post('/phishing_comments/:commentId/replies', (req, res) => {
@@ -315,50 +327,6 @@ app.put('/phishing_tickets/:id/close', (req, res) => {
         }
         res.status(200).json({ message: `Phishing ticket with ID ${id} closed` });
     });
-});
-// Endpoint per ottenere tutti i commenti di un ticket di phishing
-app.get('/phishing_tickets/:id/comments', (req, res) => {
-    const { id } = req.params;
-    const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ? ORDER BY created_at ASC';
-    connection.query(sql, [id], (err, comments) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error retrieving phishing comments' });
-        }
-        res.status(200).json(comments);
-    });
-});
-
-// Endpoint per la chat
-app.post('/messages', (req, res) => {
-    const { sender, recipient, text } = req.body;
-
-    if (!sender || !recipient || !text) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    saveChatMessage(sender, recipient, text, (err, result) => {
-        if (err) {
-            console.error('Error saving message:', err);
-            return res.status(500).json({ error: 'Error saving message to database' });
-        }
-        res.status(200).json({ message: 'Message saved' });
-    });
-});
-
-app.get('/messages', (req, res) => {
-    const sql = 'SELECT * FROM chat_messages ORDER BY timestamp ASC';
-    connection.query(sql, (err, results) => {
-        if (err) {
-            console.error('Error retrieving messages:', err);
-            return res.status(500).json({ error: 'Error retrieving messages' });
-        }
-        res.json(results);
-    });
-});
-
-// Endpoint per ottenere la lista degli utenti online (GET)
-app.get('/users', (req, res) => {
-    res.json(Object.keys(onlineUsers)); // Invia la lista degli utenti online
 });
 
 // Avvio del server
