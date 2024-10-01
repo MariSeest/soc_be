@@ -302,6 +302,33 @@ app.put('/phishing_tickets/:id/reopen', (req, res) => {
     });
 });
 
+// Endpoint per chiudere un ticket
+app.put('/tickets/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (status === 'closed') {
+        const sql = 'UPDATE tickets SET status = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ?';
+        connection.query(sql, [status, id], (err, result) => {
+            if (err) {
+                return res.status(500).json({ error: 'Errore durante la chiusura del ticket' });
+            }
+            res.status(200).json({ message: `Ticket con ID ${id} chiuso` });
+        });
+    } else {
+        // Logica per gli altri stati
+        const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
+        connection.query(sql, [status, id], (err, result) => {
+            if (err) {
+                return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' });
+            }
+            res.status(200).json({ message: `Stato del ticket con ID ${id} aggiornato a ${status}` });
+        });
+    }
+});
+
+
+
 // Riaprire un ticket chiuso
 app.put('/tickets/:id/reopen', (req, res) => {
     const { id } = req.params;

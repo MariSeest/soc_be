@@ -52,7 +52,10 @@ function getTicketById(id, callback) {
 
 // Funzione per ottenere tutti i ticket dal database
 function getAllTickets(callback) {
-    const sql = 'SELECT * FROM tickets';
+    const sql = `
+        SELECT id, name, status, category, severity, content, created_at, closed_at, last_comment_at, reopened_at, closed_previously
+        FROM tickets
+    `;
 
     connection.query(sql, (err, results) => {
         if (err) {
@@ -62,6 +65,7 @@ function getAllTickets(callback) {
         callback(null, results);
     });
 }
+
 
 // Funzione per ottenere tutti i ticket di phishing
 function getAllPhishingTickets(callback) {
@@ -155,15 +159,26 @@ function closePhishingTicket(ticket_id, callback) {
 
 // Funzione per aggiungere un commento a un ticket
 function addCommentToTicket(ticket_id, comment_text, author, callback) {
-    const sql = 'INSERT INTO comments (ticket_id, comment_text, author) VALUES (?, ?, ?)';
-    connection.query(sql, [ticket_id, comment_text, author], (err, result) => {
+    const sqlComment = 'INSERT INTO comments (ticket_id, comment_text, author) VALUES (?, ?, ?)';
+    const sqlUpdateTicket = 'UPDATE tickets SET last_comment_at = CURRENT_TIMESTAMP WHERE id = ?';
+
+    connection.query(sqlComment, [ticket_id, comment_text, author], (err, result) => {
         if (err) {
             console.error('Error adding comment: ' + err.stack);
             return callback(err);
         }
-        callback(null, result);
+
+        // Aggiorna la data dell'ultimo commento
+        connection.query(sqlUpdateTicket, [ticket_id], (updateErr) => {
+            if (updateErr) {
+                console.error('Error updating ticket last comment time: ' + updateErr.stack);
+                return callback(updateErr);
+            }
+            callback(null, result);
+        });
     });
 }
+
 
 // Funzione per aggiungere una risposta a un commento
 function addReplyToComment(comment_id, reply_text, author, callback) {
