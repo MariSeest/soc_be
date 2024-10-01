@@ -271,14 +271,18 @@ app.post('/phishing_comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
     const { reply_text, author } = req.body;
 
+    // Validazione
     if (!reply_text || !author) {
         return res.status(400).json({ error: 'Missing reply text or author' });
     }
 
+    // Aggiungi la risposta al commento
     addPhishingReply(commentId, reply_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding reply to phishing comment' });
         }
+
+        // Risposta di successo
         res.status(201).json({ message: 'Reply added to phishing comment', replyId: result.insertId });
     });
 });

@@ -104,6 +104,7 @@ function addPhishingReply(comment_id, reply_text, author, callback) {
 
     connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
+            console.error('Error adding reply: ', err.stack);
             return callback(err);
         }
         callback(null, result);
@@ -115,6 +116,7 @@ function getCommentsByPhishingTicketId(ticket_id, callback) {
 
     connection.query(sql, [ticket_id], (err, comments) => {
         if (err) {
+            console.error('Error retrieving phishing comments: ', err.stack);
             return callback(err);
         }
 
@@ -123,12 +125,15 @@ function getCommentsByPhishingTicketId(ticket_id, callback) {
             return callback(null, []);  // Nessun commento
         }
 
+        // Ottenere le risposte associate ai commenti
         const replySql = 'SELECT * FROM phishing_replies WHERE comment_id IN (?) ORDER BY created_at ASC';
         connection.query(replySql, [commentIds], (err, replies) => {
             if (err) {
+                console.error('Error retrieving replies: ', err.stack);
                 return callback(err);
             }
 
+            // Aggiunge le risposte ai commenti
             const commentsWithReplies = comments.map(comment => ({
                 ...comment,
                 replies: replies.filter(reply => reply.comment_id === comment.id)
@@ -138,6 +143,7 @@ function getCommentsByPhishingTicketId(ticket_id, callback) {
         });
     });
 }
+
 
 
 
