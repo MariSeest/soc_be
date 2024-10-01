@@ -164,24 +164,44 @@ app.delete('/tickets/:id', (req, res) => {
 app.put('/tickets/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    updateTicketStatus(id, status, (err) => {
+
+    if (!status) {
+        return res.status(400).json({ error: 'Missing status in request body' });
+    }
+
+    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
+    connection.query(sql, [status, id], (err, result) => {
         if (err) {
-            return res.status(500).json({ error: 'Error updating ticket status' });
+            return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' });
         }
-        res.status(200).json({ message: 'Ticket status updated' });
+
+        res.status(200).json({ message: `Stato del ticket con ID ${id} aggiornato a ${status}` });
     });
 });
 
 // Endpoint per ottenere i commenti di un ticket (GET)
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
-    getCommentsByTicketId(id, (err, comments) => {
+
+    // Modifica la query per prendere direttamente l'autore dalla tabella comments
+    const sql = `
+        SELECT id, comment_text, created_at, author
+        FROM comments
+        WHERE ticket_id = ?
+        ORDER BY created_at ASC
+    `;
+
+    connection.query(sql, [id], (err, results) => {
         if (err) {
+            console.error('Error retrieving comments:', err);
             return res.status(500).json({ error: 'Error retrieving comments' });
         }
-        res.status(200).json(comments);  // Assicurati che i commenti includano l'autore
+
+        res.status(200).json(results);  // Risponde con i commenti inclusi gli autori
     });
 });
+
+
 
 // Endpoint per aggiungere un commento a un ticket (POST)
 app.post('/tickets/:id/comments', (req, res) => {
@@ -272,14 +292,40 @@ app.post('/phishing_tickets', (req, res) => {
 app.put('/phishing_tickets/:id/reopen', (req, res) => {
     const { id } = req.params;
 
-    const sql = 'UPDATE phishing_tickets SET status = ?, reopened_at = ? WHERE id = ?';
-    connection.query(sql, ['open', new Date(), id], (err, result) => {
+    // Aggiorna il campo 'status', 'reopened_at' e 'closed_previously'
+    const sql = 'UPDATE phishing_tickets SET status = ?, reopened_at = ?, closed_previously = ? WHERE id = ?';
+    connection.query(sql, ['open', new Date(), true, id], (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error reopening phishing ticket' });
         }
         res.status(200).json({ message: `Phishing ticket with ID ${id} reopened` });
     });
 });
+
+// Riaprire un ticket chiuso
+app.put('/tickets/:id/reopen', (req, res) => {
+    const { id } = req.params;
+    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
+    connection.query(sql, ['open', id], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Errore durante la riapertura del ticket' });
+        }
+        res.status(200).json({ message: `Ticket con ID ${id} riaperto` });
+    });
+});
+
+// Ottenere i commenti di un ticket
+app.get('/tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+    const sql = 'SELECT * FROM comments WHERE ticket_id = ?';
+    connection.query(sql, [id], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: 'Errore durante il recupero dei commenti' });
+        }
+        res.status(200).json(results);
+    });
+});
+
 
 // Endpoint per aggiungere una risposta a un commento di phishing (POST)
 app.post('/phishing_comments/:commentId/replies', (req, res) => {
