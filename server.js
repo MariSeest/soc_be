@@ -240,8 +240,11 @@ app.post('/phishing_tickets/:id/comments', (req, res) => {
     if (!comment_text || !author) {
         return res.status(400).json({ error: 'Missing comment text or author' });
     }
-
+    console.log("id: ", id)
+    console.log("comment_text: ", comment_text);
+    console.log("author: ", author);
     addPhishingComment(id, comment_text, author, (err, result) => {
+        console.log("err: ",err)
         if (err) {
             return res.status(500).json({ error: 'Error adding comment to phishing ticket' });
         }
