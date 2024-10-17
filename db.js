@@ -185,9 +185,10 @@ function addReplyToComment(comment_id, reply_text, author, callback) {
     const sql = 'INSERT INTO comment_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
     connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
-            console.error('Error adding reply: ' + err.stack);
+            console.error('Error adding reply: ' + err.stack);  // Log dell'errore
             return callback(err);
         }
+        console.log('Reply added with ID:', result.insertId);  // Log dell'ID della risposta
         callback(null, result);
     });
 }
@@ -277,6 +278,17 @@ function saveChatMessage(sender, recipient, message, callback) {
         callback(null, result);
     });
 }
+// Funzione per eliminare un commento
+function deleteCommentById(id, callback) {
+    const sql = 'DELETE FROM comments WHERE id = ?';
+    connection.query(sql, [id], (err, result) => {
+        if (err) {
+            console.error('Error deleting comment: ' + err.stack);
+            return callback(err);
+        }
+        callback(null, result);
+    });
+}
 
 // Esporta le funzioni per essere utilizzate in altri file
 module.exports = {
@@ -295,5 +307,6 @@ module.exports = {
     addPhishingComment,
     addPhishingReply,
     getCommentsByPhishingTicketId,
-    closePhishingTicket
+    closePhishingTicket,
+    deleteCommentById
 };

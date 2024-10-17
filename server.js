@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const mysql = require('mysql2');
 const { saveChatMessage } = require('./db');
+
 const {
     createTicket,
     getTicketById,
@@ -12,14 +13,15 @@ const {
     addCommentToTicket,
     updateTicketStatus,
     getRepliesByCommentId,
-    addReplyToComment,
+    addReplyToComment, // Importato da db.js
     getCommentsByTicketId,
     getAllPhishingTickets,
     addPhishingComment,
     addPhishingReply,
     getCommentsByPhishingTicketId,
     createPhishingTicket,
-    closePhishingTicket
+    closePhishingTicket,
+    deleteCommentById
 } = require('./db');
 
 const app = express();
@@ -168,11 +170,11 @@ app.put('/tickets/:id/status', (req, res) => {
     if (!status) {
         return res.status(400).json({ error: 'Missing status in request body' });
     }
-
-    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
-    connection.query(sql, [status, id], (err, result) => {
+    const data = new Date();
+    const sql = 'UPDATE tickets SET status = ?, closed_at = ? WHERE id = ?';
+    connection.query(sql, [status, data, id], (err, result) => {
         if (err) {
-            return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' });
+            return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' + err.message });
         }
 
         res.status(200).json({ message: `Stato del ticket con ID ${id} aggiornato a ${status}` });
@@ -183,7 +185,6 @@ app.put('/tickets/:id/status', (req, res) => {
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
-    // Modifica la query per prendere direttamente l'autore dalla tabella comments
     const sql = `
         SELECT id, comment_text, created_at, author
         FROM comments
@@ -197,18 +198,20 @@ app.get('/tickets/:id/comments', (req, res) => {
             return res.status(500).json({ error: 'Error retrieving comments' });
         }
 
-        res.status(200).json(results);  // Risponde con i commenti inclusi gli autori
+        res.status(200).json(results); // Risponde con i commenti inclusi gli autori
     });
 });
-
-
 
 // Endpoint per aggiungere un commento a un ticket (POST)
 app.post('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
-    const { comment, author } = req.body;  // Aggiungi il campo author
+    const { comment_text, author } = req.body;
 
-    addCommentToTicket(id, comment, author, (err, result) => {
+    if (!comment_text || !author) {
+        return res.status(400).json({ error: 'Missing comment text or author' });
+    }
+
+    addCommentToTicket(id, comment_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding comment' });
         }
@@ -219,9 +222,13 @@ app.post('/tickets/:id/comments', (req, res) => {
 // Endpoint per aggiungere una risposta a un commento (POST)
 app.post('/comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
-    const { reply, author } = req.body;  // Aggiungi il campo author
+    const { reply_text, author } = req.body;
 
-    addReplyToComment(commentId, reply, author, (err, result) => {
+    if (!reply_text || !author) {
+        return res.status(400).json({ error: 'Missing reply text or author' });
+    }
+
+    addReplyToComment(commentId, reply_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding reply' });
         }
@@ -239,6 +246,7 @@ app.get('/comments/:commentId/replies', (req, res) => {
         res.status(200).json(replies);
     });
 });
+
 
 // Gestione dei ticket di phishing
 
@@ -260,11 +268,7 @@ app.post('/phishing_tickets/:id/comments', (req, res) => {
     if (!comment_text || !author) {
         return res.status(400).json({ error: 'Missing comment text or author' });
     }
-    console.log("id: ", id)
-    console.log("comment_text: ", comment_text);
-    console.log("author: ", author);
     addPhishingComment(id, comment_text, author, (err, result) => {
-        console.log("err: ",err)
         if (err) {
             return res.status(500).json({ error: 'Error adding comment to phishing ticket' });
         }
@@ -288,110 +292,24 @@ app.post('/phishing_tickets', (req, res) => {
     });
 });
 
-// Endpoint per riaprire un ticket di phishing
-app.put('/phishing_tickets/:id/reopen', (req, res) => {
-    const { id } = req.params;
-
-    // Aggiorna il campo 'status', 'reopened_at' e 'closed_previously'
-    const sql = 'UPDATE phishing_tickets SET status = ?, reopened_at = ?, closed_previously = ? WHERE id = ?';
-    connection.query(sql, ['open', new Date(), true, id], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error reopening phishing ticket' });
-        }
-        res.status(200).json({ message: `Phishing ticket with ID ${id} reopened` });
-    });
-});
-
-// Endpoint per chiudere un ticket
-app.put('/tickets/:id/status', (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (status === 'closed') {
-        const sql = 'UPDATE tickets SET status = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ?';
-        connection.query(sql, [status, id], (err, result) => {
-            if (err) {
-                return res.status(500).json({ error: 'Errore durante la chiusura del ticket' });
-            }
-            res.status(200).json({ message: `Ticket con ID ${id} chiuso` });
-        });
-    } else {
-        // Logica per gli altri stati
-        const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
-        connection.query(sql, [status, id], (err, result) => {
-            if (err) {
-                return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' });
-            }
-            res.status(200).json({ message: `Stato del ticket con ID ${id} aggiornato a ${status}` });
-        });
-    }
-});
-
-
-
-// Riaprire un ticket chiuso
-app.put('/tickets/:id/reopen', (req, res) => {
-    const { id } = req.params;
-    const sql = 'UPDATE tickets SET status = ? WHERE id = ?';
-    connection.query(sql, ['open', id], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Errore durante la riapertura del ticket' });
-        }
-        res.status(200).json({ message: `Ticket con ID ${id} riaperto` });
-    });
-});
-
-// Ottenere i commenti di un ticket
-app.get('/tickets/:id/comments', (req, res) => {
-    const { id } = req.params;
-    const sql = 'SELECT * FROM comments WHERE ticket_id = ?';
-    connection.query(sql, [id], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Errore durante il recupero dei commenti' });
-        }
-        res.status(200).json(results);
-    });
-});
-
-
 // Endpoint per aggiungere una risposta a un commento di phishing (POST)
 app.post('/phishing_comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
     const { reply_text, author } = req.body;
 
-    // Validazione
     if (!reply_text || !author) {
         return res.status(400).json({ error: 'Missing reply text or author' });
     }
 
-    // Aggiungi la risposta al commento
     addPhishingReply(commentId, reply_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding reply to phishing comment' });
         }
-
-        // Risposta di successo
         res.status(201).json({ message: 'Reply added to phishing comment', replyId: result.insertId });
     });
 });
 
-// Endpoint per ottenere i commenti di un ticket di phishing con le risposte (GET)
-app.get('/phishing_tickets/:id/comments', (req, res) => {
-    const { id } = req.params;
 
-    getCommentsByPhishingTicketId(id, (err, comments) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error retrieving phishing comments', err });
-        }
-
-        const commentsWithReplies = comments.map(comment => ({
-            ...comment,
-            replies: comment.replies || []  // Imposta replies come array vuoto se non esiste
-        }));
-
-        res.status(200).json(commentsWithReplies);
-    });
-});
 
 // Endpoint per chiudere un ticket di phishing
 app.put('/phishing_tickets/:id/close', (req, res) => {
@@ -404,6 +322,7 @@ app.put('/phishing_tickets/:id/close', (req, res) => {
         res.status(200).json({ message: `Phishing ticket with ID ${id} closed` });
     });
 });
+
 
 // Endpoint per ottenere i messaggi della chat (GET)
 app.get('/messages', (req, res) => {
