@@ -181,15 +181,17 @@ app.put('/tickets/:id/status', (req, res) => {
     });
 });
 
-// Endpoint per ottenere i commenti di un ticket (GET)
+// Endpoint per ottenere i commenti di un ticket con le relative risposte (GET)
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
     const sql = `
-        SELECT id, comment_text, created_at, author
-        FROM comments
-        WHERE ticket_id = ?
-        ORDER BY created_at ASC
+        SELECT c.id AS comment_id, c.comment_text, c.created_at, c.author,
+               r.reply_text, r.created_at AS reply_created_at, r.author AS reply_author
+        FROM comments c
+        LEFT JOIN comment_replies r ON c.id = r.comment_id
+        WHERE c.ticket_id = ?
+        ORDER BY c.created_at ASC, r.created_at ASC
     `;
 
     connection.query(sql, [id], (err, results) => {
@@ -198,7 +200,38 @@ app.get('/tickets/:id/comments', (req, res) => {
             return res.status(500).json({ error: 'Error retrieving comments' });
         }
 
-        res.status(200).json(results); // Risponde con i commenti inclusi gli autori
+        // Ristruttura i risultati in modo che ogni commento contenga le sue risposte
+        const commentsWithReplies = results.reduce((acc, row) => {
+            const { comment_id, comment_text, created_at, author, reply_text, reply_created_at, reply_author } = row;
+
+            const comment = acc.find(comment => comment.id === comment_id);
+            if (comment) {
+                // Aggiungi la risposta se presente
+                if (reply_text) {
+                    comment.replies.push({
+                        reply_text,
+                        created_at: reply_created_at,
+                        author: reply_author || 'Anonimo' // Gestione dell'autore NULL
+                    });
+                }
+            } else {
+                // Nuovo commento
+                acc.push({
+                    id: comment_id,
+                    comment_text,
+                    created_at,
+                    author,
+                    replies: reply_text ? [{
+                        reply_text,
+                        created_at: reply_created_at,
+                        author: reply_author || 'Anonimo' // Gestione dell'autore NULL
+                    }] : []
+                });
+            }
+            return acc;
+        }, []);
+
+        res.status(200).json(commentsWithReplies); // Risponde con i commenti e le loro risposte
     });
 });
 
@@ -246,7 +279,6 @@ app.get('/comments/:commentId/replies', (req, res) => {
         res.status(200).json(replies);
     });
 });
-
 
 // Gestione dei ticket di phishing
 
@@ -309,8 +341,6 @@ app.post('/phishing_comments/:commentId/replies', (req, res) => {
     });
 });
 
-
-
 // Endpoint per chiudere un ticket di phishing
 app.put('/phishing_tickets/:id/close', (req, res) => {
     const { id } = req.params;
@@ -322,7 +352,6 @@ app.put('/phishing_tickets/:id/close', (req, res) => {
         res.status(200).json({ message: `Phishing ticket with ID ${id} closed` });
     });
 });
-
 
 // Endpoint per ottenere i messaggi della chat (GET)
 app.get('/messages', (req, res) => {
