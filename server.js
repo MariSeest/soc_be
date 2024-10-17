@@ -3,8 +3,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const mysql = require('mysql2');
-const { saveChatMessage } = require('./db');
-
 const {
     createTicket,
     getTicketById,
@@ -13,7 +11,7 @@ const {
     addCommentToTicket,
     updateTicketStatus,
     getRepliesByCommentId,
-    addReplyToComment, // Importato da db.js
+    addReplyToComment,
     getCommentsByTicketId,
     getAllPhishingTickets,
     addPhishingComment,
@@ -21,7 +19,7 @@ const {
     getCommentsByPhishingTicketId,
     createPhishingTicket,
     closePhishingTicket,
-    deleteCommentById
+    deleteCommentById,
 } = require('./db');
 
 const app = express();
@@ -56,62 +54,6 @@ connection.connect((err) => {
         return;
     }
     console.log('Connected to MySQL as ID ' + connection.threadId);
-});
-
-// Gestione degli utenti online per la chat
-let onlineUsers = {};
-
-io.on('connection', (socket) => {
-    console.log('A user connected');
-
-    // Registra l'utente online quando si connette
-    socket.on('register', (username) => {
-        onlineUsers[username] = socket.id;
-        console.log(`${username} registered with socket id ${socket.id}`);
-
-        // Invia la lista aggiornata degli utenti online a tutti
-        io.emit('onlineUsers', Object.keys(onlineUsers));
-    });
-
-    // Invia il messaggio tramite Socket.IO
-    socket.on('chat message', (msg) => {
-        const { sender, recipient, text } = msg;
-
-        // Salva il messaggio su MySQL
-        saveChatMessage(sender, recipient, text, (err, result) => {
-            if (err) {
-                console.error('Error saving message:', err);
-                socket.emit('error', 'Message could not be saved');
-                return;
-            }
-            console.log('Message saved to database');
-
-            // Emetti il messaggio al destinatario se è online
-            const recipientSocketId = onlineUsers[recipient];
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('chat message', msg);
-            }
-        });
-
-        // Invia il messaggio anche al mittente
-        socket.emit('chat message', msg);
-    });
-
-    // Quando l'utente si disconnette
-    socket.on('disconnect', () => {
-        let disconnectedUser;
-        for (let [username, socketId] of Object.entries(onlineUsers)) {
-            if (socketId === socket.id) {
-                disconnectedUser = username;
-                delete onlineUsers[username];
-                break;
-            }
-        }
-        console.log(`${disconnectedUser} disconnected`);
-
-        // Invia la lista aggiornata degli utenti online a tutti
-        io.emit('onlineUsers', Object.keys(onlineUsers));
-    });
 });
 
 // Gestione dei ticket
@@ -176,8 +118,21 @@ app.put('/tickets/:id/status', (req, res) => {
         if (err) {
             return res.status(500).json({ error: 'Errore durante l\'aggiornamento dello stato del ticket' + err.message });
         }
-
         res.status(200).json({ message: `Stato del ticket con ID ${id} aggiornato a ${status}` });
+    });
+});
+
+// Endpoint per riaprire un ticket
+app.put('/tickets/:id/reopen', (req, res) => {
+    const { id } = req.params;
+
+    const sql = 'UPDATE tickets SET status = ?, reopened_at = CURRENT_TIMESTAMP WHERE id = ?';
+    connection.query(sql, ['reopened', id], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Errore durante la riapertura del ticket' + err.message });
+        }
+
+        res.status(200).json({ message: `Ticket con ID ${id} riaperto` });
     });
 });
 

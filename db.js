@@ -29,7 +29,7 @@ function createTicket(name, status, category, severity, content, actions, callba
             return callback(err);
         }
         console.log('Ticket inserito con ID: ' + result.insertId);
-        callback(null, result.insertId);
+        callback(null, result.insertId); // ID unico
     });
 }
 
@@ -43,7 +43,7 @@ function getTicketById(id, callback) {
             return callback(err);
         }
         if (result.length === 0) {
-            return callback(new Error('No ticket found with this ID'));
+            return callback(new Error('No ticket found with this ID')); // Assicura che l'ID sia unico
         }
         console.log('Ticket retrieved: ', result[0]);
         callback(null, result[0]);
@@ -66,7 +66,6 @@ function getAllTickets(callback) {
     });
 }
 
-
 // Funzione per ottenere tutti i ticket di phishing
 function getAllPhishingTickets(callback) {
     const sql = 'SELECT * FROM phishing_tickets';
@@ -77,6 +76,7 @@ function getAllPhishingTickets(callback) {
         callback(null, results);
     });
 }
+
 // Funzione per creare un nuovo ticket di phishing
 function createPhishingTicket(domain, severity, status, callback) {
     const sql = 'INSERT INTO phishing_tickets (domain, severity, status) VALUES (?, ?, ?)';
@@ -87,7 +87,7 @@ function createPhishingTicket(domain, severity, status, callback) {
             console.error('Error creating phishing ticket: ' + err.stack);
             return callback(err);
         }
-        callback(null, result.insertId);
+        callback(null, result.insertId); // ID unico
     });
 }
 
@@ -112,6 +112,7 @@ function addPhishingReply(comment_id, reply_text, author, callback) {
         callback(null, result);
     });
 }
+
 // Funzione per ottenere i commenti di un ticket di phishing e le relative risposte
 function getCommentsByPhishingTicketId(ticket_id, callback) {
     const sql = 'SELECT * FROM phishing_comments WHERE ticket_id = ? ORDER BY created_at ASC';
@@ -179,16 +180,15 @@ function addCommentToTicket(ticket_id, comment_text, author, callback) {
     });
 }
 
-
 // Funzione per aggiungere una risposta a un commento
 function addReplyToComment(comment_id, reply_text, author, callback) {
     const sql = 'INSERT INTO comment_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
     connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
-            console.error('Error adding reply: ' + err.stack);  // Log dell'errore
+            console.error('Error adding reply: ' + err.stack); // Log dell'errore
             return callback(err);
         }
-        console.log('Reply added with ID:', result.insertId);  // Log dell'ID della risposta
+        console.log('Reply added with ID:', result.insertId); // Log dell'ID della risposta
         callback(null, result);
     });
 }
@@ -278,6 +278,7 @@ function saveChatMessage(sender, recipient, message, callback) {
         callback(null, result);
     });
 }
+
 // Funzione per eliminare un commento
 function deleteCommentById(id, callback) {
     const sql = 'DELETE FROM comments WHERE id = ?';
