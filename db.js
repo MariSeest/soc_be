@@ -104,6 +104,9 @@ function addPhishingComment(ticket_id, comment_text, author, callback) {
 function addPhishingReply(comment_id, reply_text, author, callback) {
     const sql = 'INSERT INTO phishing_replies (comment_id, reply_text, author) VALUES (?, ?, ?)';
 
+    // Log per verificare i valori
+    console.log('Adding reply with comment_id:', comment_id, 'reply_text:', reply_text, 'author:', author);
+
     connection.query(sql, [comment_id, reply_text, author], (err, result) => {
         if (err) {
             console.error('Error adding reply: ', err.stack);
@@ -225,18 +228,41 @@ function getCommentsByTicketId(ticket_id, callback) {
     });
 }
 
-// Funzione per eliminare un ticket
-function deleteTicketById(id, callback) {
-    const sql = 'DELETE FROM tickets WHERE id = ?';
 
-    connection.query(sql, [id], (err, result) => {
+// Funzione per eliminare un ticket normale e tutte le risposte e commenti associati
+function deleteTicketById(ticketId, callback) {
+    console.log(`Attempting to delete ticket with ID: ${ticketId}`);
+
+    // Prima eliminiamo le risposte associate ai commenti
+    const deleteRepliesSql = 'DELETE FROM comment_replies WHERE comment_id IN (SELECT id FROM comments WHERE ticket_id = ?)';
+    connection.query(deleteRepliesSql, [ticketId], (err, result) => {
         if (err) {
-            console.error('Error deleting ticket: ' + err.stack);
+            console.error('Error deleting replies:', err);
             return callback(err);
         }
-        callback(null, result);
+
+        // Poi eliminiamo i commenti associati al ticket
+        const deleteCommentsSql = 'DELETE FROM comments WHERE ticket_id = ?';
+        connection.query(deleteCommentsSql, [ticketId], (err, result) => {
+            if (err) {
+                console.error('Error deleting comments:', err);
+                return callback(err);
+            }
+
+            // Infine, eliminiamo il ticket stesso
+            const deleteTicketSql = 'DELETE FROM tickets WHERE id = ?';
+            connection.query(deleteTicketSql, [ticketId], (err, result) => {
+                if (err) {
+                    console.error('Error deleting ticket:', err);
+                    return callback(err);
+                }
+                console.log(`Ticket with ID ${ticketId} deleted successfully`);
+                callback(null, result);
+            });
+        });
     });
 }
+
 
 // Funzione per ottenere tutte le risposte a un commento
 function getRepliesByCommentId(comment_id, callback) {
@@ -290,6 +316,40 @@ function deleteCommentById(id, callback) {
         callback(null, result);
     });
 }
+// Funzione per eliminare un ticket di phishing e tutte le risposte e commenti associati
+function deleteTicketByIdPhishing(ticketId, callback) {
+    console.log(`Attempting to delete phishing ticket with ID: ${ticketId}`);
+
+    // Prima eliminiamo le risposte associate ai commenti
+    const deleteRepliesSql = 'DELETE FROM comment_replies WHERE comment_id IN (SELECT id FROM phishing_comments WHERE ticket_id = ?)';
+    connection.query(deleteRepliesSql, [ticketId], (err, result) => {
+        if (err) {
+            console.error('Error deleting replies:', err);
+            return callback(err);
+        }
+
+        // Poi eliminiamo i commenti associati al ticket
+        const deleteCommentsSql = 'DELETE FROM phishing_comments WHERE ticket_id = ?';
+        connection.query(deleteCommentsSql, [ticketId], (err, result) => {
+            if (err) {
+                console.error('Error deleting comments:', err);
+                return callback(err);
+            }
+
+            // Infine, eliminiamo il ticket stesso
+            const deleteTicketSql = 'DELETE FROM phishing_tickets WHERE id = ?';
+            connection.query(deleteTicketSql, [ticketId], (err, result) => {
+                if (err) {
+                    console.error('Error deleting ticket:', err);
+                    return callback(err);
+                }
+                console.log(`Phishing ticket with ID ${ticketId} deleted successfully`);
+                callback(null, result);
+            });
+        });
+    });
+}
+
 
 // Esporta le funzioni per essere utilizzate in altri file
 module.exports = {
@@ -309,5 +369,6 @@ module.exports = {
     addPhishingReply,
     getCommentsByPhishingTicketId,
     closePhishingTicket,
-    deleteCommentById
+    deleteCommentById,
+    deleteTicketByIdPhishing,
 };

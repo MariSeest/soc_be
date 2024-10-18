@@ -9,10 +9,10 @@ const {
     getAllTickets,
     deleteTicketById,
     addCommentToTicket,
+    deleteTicketByIdPhishing,
     updateTicketStatus,
     getRepliesByCommentId,
     addReplyToComment,
-    getCommentsByTicketId,
     getAllPhishingTickets,
     addPhishingComment,
     addPhishingReply,
@@ -104,7 +104,8 @@ app.delete('/tickets/:id', (req, res) => {
     });
 });
 
-// Endpoint per aggiornare lo stato
+
+// Endpoint per aggiornare lo stato (PUT)
 app.put('/tickets/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -122,7 +123,7 @@ app.put('/tickets/:id/status', (req, res) => {
     });
 });
 
-// Endpoint per riaprire un ticket
+// Endpoint per riaprire un ticket (PUT)
 app.put('/tickets/:id/reopen', (req, res) => {
     const { id } = req.params;
 
@@ -140,7 +141,7 @@ app.put('/tickets/:id/reopen', (req, res) => {
 app.get('/tickets/:id/comments', (req, res) => {
     const { id } = req.params;
 
-    const sql = `
+    const sql = `  
         SELECT c.id AS comment_id, c.comment_text, c.created_at, c.author,
                r.reply_text, r.created_at AS reply_created_at, r.author AS reply_author
         FROM comments c
@@ -247,22 +248,6 @@ app.get('/phishing_tickets', (req, res) => {
     });
 });
 
-// Endpoint per aggiungere un commento a un ticket di phishing (POST)
-app.post('/phishing_tickets/:id/comments', (req, res) => {
-    const { id } = req.params;
-    const { comment_text, author } = req.body;
-
-    if (!comment_text || !author) {
-        return res.status(400).json({ error: 'Missing comment text or author' });
-    }
-    addPhishingComment(id, comment_text, author, (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error adding comment to phishing ticket' });
-        }
-        res.status(201).json({ message: 'Comment added to phishing ticket', commentId: result.insertId });
-    });
-});
-
 // Endpoint per creare un nuovo ticket di phishing (POST)
 app.post('/phishing_tickets', (req, res) => {
     const { domain, severity, status } = req.body;
@@ -279,6 +264,22 @@ app.post('/phishing_tickets', (req, res) => {
     });
 });
 
+// Endpoint per aggiungere un commento a un ticket di phishing (POST)
+app.post('/phishing_tickets/:id/comments', (req, res) => {
+    const { id } = req.params;
+    const { comment_text, author } = req.body;
+
+    if (!comment_text || !author) {
+        return res.status(400).json({ error: 'Missing comment text or author' });
+    }
+    addPhishingComment(id, comment_text, author, (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error adding comment to phishing ticket' });
+        }
+        res.status(201).json({ message: 'Comment added to phishing ticket', commentId: result.insertId });
+    });
+});
+
 // Endpoint per aggiungere una risposta a un commento di phishing (POST)
 app.post('/phishing_comments/:commentId/replies', (req, res) => {
     const { commentId } = req.params;
@@ -288,7 +289,13 @@ app.post('/phishing_comments/:commentId/replies', (req, res) => {
         return res.status(400).json({ error: 'Missing reply text or author' });
     }
 
-    addPhishingReply(commentId, reply_text, author, (err, result) => {
+    // Assicurati che commentId sia un numero intero
+    const parsedCommentId = parseInt(commentId, 10);
+    if (isNaN(parsedCommentId)) {
+        return res.status(400).json({ error: 'Invalid comment ID' });
+    }
+
+    addPhishingReply(parsedCommentId, reply_text, author, (err, result) => {
         if (err) {
             return res.status(500).json({ error: 'Error adding reply to phishing comment' });
         }
@@ -296,7 +303,19 @@ app.post('/phishing_comments/:commentId/replies', (req, res) => {
     });
 });
 
-// Endpoint per chiudere un ticket di phishing
+// Endpoint per ottenere i commenti di un ticket di phishing con le relative risposte (GET)
+app.get('/phishing_tickets/:id/phishing_comments', (req, res) => {
+    const { id } = req.params;
+
+    getCommentsByPhishingTicketId(id, (err, comments) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error retrieving comments' });
+        }
+        res.status(200).json(comments);
+    });
+});
+
+// Endpoint per chiudere un ticket di phishing (PUT)
 app.put('/phishing_tickets/:id/close', (req, res) => {
     const { id } = req.params;
 
@@ -305,6 +324,16 @@ app.put('/phishing_tickets/:id/close', (req, res) => {
             return res.status(500).json({ error: 'Error closing phishing ticket' });
         }
         res.status(200).json({ message: `Phishing ticket with ID ${id} closed` });
+    });
+});
+// Endpoint per eliminare un ticket di phishing (DELETE)
+app.delete('/phishing_tickets/:id', (req, res) => {
+    const { id } = req.params;
+    deleteTicketByIdPhishing(id, (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error deleting ticket' });
+        }
+        res.status(200).json({ message: `Ticket with id ${id} deleted` });
     });
 });
 
